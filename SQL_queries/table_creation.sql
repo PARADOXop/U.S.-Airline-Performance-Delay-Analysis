@@ -1,17 +1,32 @@
+-- switch to the FlightAnalysis database to work here
 use  FlightAnalysis;
 
+-- drop tables if they already exist so we can recreate clean ones
 drop table if exists flights;
 drop table if exists airlines;
 
+-- drop airports too if it exists (keeps script rerunnable)
 drop table if exists airports;
 
-
+-- create airlines lookup table (code and full name)
 CREATE TABLE airlines (
     airline_code CHAR(2) PRIMARY KEY,       -- NK, AA, etc.
     airline_name VARCHAR(100) NOT NULL
 );
 
+-- load airlines from CSV in one go (bulk load)
+-- skip header row, comma-separated, LF line breaks, UTF-8
+BULK INSERT airlines
+FROM 'R:\U.S.-Airline-Performance-Delay-Analysis\data\airlines.csv'
+WITH (
+    FIRSTROW = 2,
+    FIELDTERMINATOR = ',',
+    ROWTERMINATOR = '0x0a',
+    TABLOCK,
+    CODEPAGE = '65001'
+);
 
+-- create airports table with basic location info
 CREATE TABLE airports (
     IATA_code CHAR(3) PRIMARY KEY,          -- e.g. MSP
     airport_name VARCHAR(300) NOT NULL,
@@ -22,8 +37,18 @@ CREATE TABLE airports (
     longitude DECIMAL(9,6)
 );
 
+-- bulk load airports from CSV (same format settings)
+BULK INSERT airports
+FROM 'R:\U.S.-Airline-Performance-Delay-Analysis\data\airports.csv'
+WITH (
+    FIRSTROW = 2,
+    FIELDTERMINATOR = ',',
+    ROWTERMINATOR = '0x0a',
+    TABLOCK,
+    CODEPAGE = '65001'
+);
 
-
+-- create flights fact table (links to airlines; stores times and delays)
 CREATE TABLE flights (
     year SMALLINT,
     month TINYINT,
@@ -65,38 +90,13 @@ CREATE TABLE flights (
     late_aircraft_delay SMALLINT NULL,
     weather_delay SMALLINT NULL,
 
-    -- foreign key
+    -- link each flight to its operating airline code
     CONSTRAINT FK_Flights_Airline FOREIGN KEY (airline_code)
         REFERENCES airlines(airline_code)
 );
 
-
--- lets insert into tables on
--- we use bulk to insert in bulk
-
-BULK INSERT airlines
-FROM 'R:\U.S.-Airline-Performance-Delay-Analysis\data\airlines.csv'
-WITH (
-    FIRSTROW = 2,
-    FIELDTERMINATOR = ',',
-    ROWTERMINATOR = '0x0a',
-    TABLOCK,
-    CODEPAGE = '65001'
-);
-
-
-
-BULK INSERT airports
-FROM 'R:\U.S.-Airline-Performance-Delay-Analysis\data\airports.csv'
-WITH (
-    FIRSTROW = 2,
-    FIELDTERMINATOR = ',',
-    ROWTERMINATOR = '0x0a',
-    TABLOCK,
-    CODEPAGE = '65001'
-);
-
-
+-- bulk load flights data; keep NULLs from file as NULLs in table
+-- skip header, comma CSV, LF line breaks, UTF-8
 BULK INSERT flights
 FROM 'R:\U.S.-Airline-Performance-Delay-Analysis\data\flights.csv'
 WITH (
@@ -107,16 +107,3 @@ WITH (
     CODEPAGE = '65001',
     KEEPNULLS
 );
-
-
-
-
-select *
-from airports;
-
-select *
-from airlines;
-
-
-select *
-from flights;
